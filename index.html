@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <title>Doodle Droider</title>
+    <style>
+        body, html {
+            font-family: "Permanent Marker", cursive;
+            font-style: normal;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+            background: url('assets/bg.jpg');
+        }
+        .footer {
+            background-color: #CCCCCC;
+            box-shadow: 0 -5px 9px rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            text-align: center;
+            z-index: 1;
+        }
+        #canvas {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+            z-index: 0;
+            background: transparent;
+        }
+        #score {
+            position: fixed;
+            top: 24px;
+            left: 0;
+            padding: 12px;
+            font-size: 16px;
+        }
+        #lives {
+            position: fixed;
+            top: 20px;
+            right: 0;
+            padding: 12px;
+            font-size: 16px;
+        }
+        #lives img {
+            height: 40px;
+            vertical-align: middle;
+        }
+        .dialog .overlay {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: black;
+            opacity: 0.8;
+            z-index: 1;
+        }
+        .dialog {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .dialog .content {
+            background: white;
+            border-radius: 10px;
+            z-index: 1;
+            text-align: center;
+            margin: 20px;
+            padding: 0 20px 20px;
+            min-width: 300px;
+            max-width: 400px;
+            flex-direction: column;
+        }
+        .dialog .button {
+            font-size: 20px;
+            line-height: 40px;
+            height: 40px;
+        }
+        .buttons {
+            display: flex;
+            flex-direction: row;
+            margin: -4px;
+            align-items: center;
+            justify-content: center;
+        }
+        .button {
+            background-color: white;
+            border-radius: 50px;
+            flex: 1;
+            padding: 8px;
+            text-decoration: none;
+            color: black;
+            border: 1px solid black;
+            margin: 4px;
+            text-align: center;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            font-size: 40px;
+            line-height: 60px;
+        }
+        .button:hover {
+            background: #CCCCCC;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="footer buttons" id="footer">
+    <a class="button" data-input="left" href="#">↺</a>
+    <a class="button" data-input="right" href="#">↻</a>
+    <a class="button" data-input="thrust" href="#">↟</a>
+    <a class="button" data-input="shoot" href="#">⌖</a>
+</div>
+<div id="score">Level: <span id="level-value">1</span> | Score: <span id="score-value">0</span></div>
+<div id="lives">
+    <span id="lives-value">3</span>x
+    <img src="assets/ship.png" alt="lives" />
+</div>
+
+<div id="welcome" class="dialog" style="display: flex;">
+    <div class="overlay hide-dialog"></div>
+    <div class="content">
+        <h2>Doodle Droider</h2>
+        <hr>
+        <div>
+            <p>Destroy as many droids as you can.</p>
+            <p>Ravi Lopes<br><small>Arts</small><br><br>Paulo Hecht<br><small>Programming</small></p>
+        </div>
+        <hr>
+        <div class="buttons">
+            <a class="button button-play" href="#">Play</a>
+        </div>
+    </div>
+</div>
+
+<div id="game-over" class="dialog" style="display: none;">
+    <div class="overlay hide-dialog"></div>
+    <div class="content">
+        <h2>Game Over</h2>
+        <hr>
+        <div>
+            <p>Your Level:</p>
+            <h2 id="game-over-level"></h2>
+            <p>Your Score:</p>
+            <h2 id="game-over-score"></h2>
+        </div>
+        <hr>
+        <div class="buttons">
+            <a class="button button-play" href="#">Play Again</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    class GameObject {
+        static instances = [];
+
+        updateOrder = 10;
+        drawOrder = 10;
+
+        constructor(x = 0, y = 0, h = 0, w = 0, r = 0, asset = null) {
+            this.x = x;
+            this.y = y;
+            this.h = h;
+            this.w = w;
+            this.r = r;
+            this.asset = asset;
+
+            GameObject.instances.push(this);
+        }
+
+        destroy() {
+            GameObject.instances = GameObject.instances.filter(element => element !== this);
+        }
+
+        draw(context) {
+            if (!this.asset) return;
+            if (!this.asset.complete) return;
+            context.save();
+            context.translate(this.x, this.y);
+            context.rotate(this.r * Math.PI / 180.0);
+            context.drawImage(this.asset, -this.w / 2, -this.h / 2, this.w, this.h);
+            context.restore();
+        }
+
+
+        update(elapsedTime) {}
+
+        static destroyAll() {
+            GameObject.instances = [];
+        }
+
+        static drawAll(context) {
+            GameObject.instances.sort((a, b) => a.drawOrder - b.drawOrder).forEach((instance) => instance.draw(context));
+        }
+
+        static updateAll(elapsedTime) {
+            GameObject.instances.sort((a, b) => a.updateOrder - b.updateOrder).forEach((instance) => instance.update(elapsedTime));
+        }
+
+        static all(type = GameObject) {
+            return GameObject.instances.filter(object => object instanceof type);
+        }
+
+        static first(type = GameObject) {
+            return GameObject.all(type)[0];
+        }
+    }
+
+    class Bullet extends GameObject {
+        drawOrder = 100;
+        updateOrder = 10;
+
+        vel = 150;
+        ttl = 5;
+
+        constructor(x = 0, y = 0, r = 0) {
+            super(x, y, 40, 40, r, assetManager.assets.bullet);
+            this.velX = Math.sin(this.r * Math.PI / 180.0) * this.vel;
+            this.velY = Math.cos(this.r * Math.PI / 180.0) * this.vel;
+            this.velR = 200;
+        }
+
+        update(elapsedTime) {
+            this.ttl -= elapsedTime;
+            if (this.ttl < 0) this.destroy();
+
+            this.x += elapsedTime * this.velX;
+            this.y -= elapsedTime * this.velY;
+            this.r -= elapsedTime * this.velR;
+        }
+    }
+
+    class Asteroid extends GameObject {
+        drawOrder = 5;
+        updateOrder = 5;
+
+        minVel = 30;
+        maxVel = 30;
+        minRotVel = 10;
+        maxRotVel = 50;
+
+        constructor(parent = null) {
+            const level = parent ? parent.level + 1 : 1;
+            const size = 200.0 / level;
+            const x = parent ? parent.x + ((Math.random() * parent.w / 4 * (Math.random() * 10 % 2 > 1 ? 1 : -1))) : Math.random() * 10 % 2 > 1 ? -(size/2) : canvasWidth + (size/2);
+            const y = parent ? parent.y + ((Math.random() * parent.h / 4 * (Math.random() * 10 % 2 > 1 ? 1 : -1)))  : Math.random() * canvasHeight;
+            super(x, y, size, size, Math.random() * 360, assetManager.assets.asteroid);
+
+            this.velX = (Math.floor(Math.random() * (this.maxVel - this.minVel + 1)) + this.minVel) * (Math.random() * 10 % 2 > 1 ? -1 : 1);
+            this.velY = (Math.floor(Math.random() * (this.maxVel - this.minVel + 1)) + this.minVel) * (Math.random() * 10 % 2 > 1 ? -1 : 1);
+            this.rotVel = (Math.floor(Math.random() * (this.maxRotVel - this.minRotVel + 1)) + this.minRotVel) * (Math.random() * 10 % 2 > 1 ? -1 : 1);
+            this.level = level;
+        }
+
+        hit() {
+            score += this.level;
+            if (this.level < 3) {
+                new Asteroid(this);
+                new Asteroid(this);
+            }
+            this.destroy();
+        }
+
+        update(elapsedTime) {
+            this.r += elapsedTime * this.rotVel;
+            this.x += elapsedTime * this.velX;
+            this.y -= elapsedTime * this.velY;
+            // Wrap edges
+            if (this.x < 0 - this.w / 2) this.x = canvasWidth + this.w / 2;
+            if (this.x > canvasWidth + this.w / 2) this.x = 0 - this.w / 2;
+            if (this.y < 0 - this.h / 2) this.y = canvasHeight + this.h / 2;
+            if (this.y > canvasHeight + this.h / 2) this.y = 0 - this.h / 2;
+        }
+    }
+
+    class Ship extends GameObject {
+        drawOrder = 10;
+        updateOrder = 0;
+
+        accel = 50;
+        maxVel = 50;
+        friction = 0.99;
+        rotAccel = 150;
+        maxRotVel = 150;
+        rotFriction = 0.95;
+        coolDown = 0.75;
+        crashCoolDown = 3;
+
+        lives = 3;
+
+        velX = 0;
+        velY = 0;
+        rotVel = 0;
+        coolDownTtl = 0;
+        crashCoolDownTtl = 0;
+
+
+        constructor(x = 0, y = 0, r = 0) {
+            super(x, y, 100, 100, r, assetManager.assets.ship);
+        }
+
+        crash() {
+            if (this.crashCoolDownTtl > 0) return;
+            this.lives--;
+            this.crashCoolDownTtl = this.crashCoolDown;
+        }
+
+        update(elapsedTime) {
+            // Apply rotation
+            let rotate = 0;
+            if (inputManager.inputs.right) rotate += 1;
+            if (inputManager.inputs.left) rotate -= 1;
+            this.rotVel *= this.rotFriction;
+            this.rotVel = Math.max(-this.maxRotVel, Math.min(this.rotVel + (rotate * elapsedTime * this.rotAccel), this.maxRotVel));
+            this.r += elapsedTime * this.rotVel;
+            // Apply Thrust
+            this.asset = assetManager.assets.ship
+            if (inputManager.inputs.thrust) {
+                // Blink
+                if (Math.floor(Date.now() / 100 % 2) === 1) this.asset = assetManager.assets.shipThrust;
+                this.velX += Math.sin(this.r * Math.PI / 180.0) * elapsedTime * this.accel;
+                this.velY += Math.cos(this.r * Math.PI / 180.0) * elapsedTime * this.accel;
+            } else {
+                // Apply Friction
+                this.velX *= this.friction;
+                this.velY *= this.friction;
+            }
+            // Max Vel
+            const vel = Math.sqrt(this.velX ** 2 + this.velY ** 2);
+            if (vel > this.maxVel) {
+                this.velX = (this.velX / vel) * this.maxVel;
+                this.velY = (this.velY / vel) * this.maxVel;
+            }
+            this.x += elapsedTime * this.velX;
+            this.y -= elapsedTime * this.velY;
+            // Wrap edges
+            if (this.x < 0 - this.w / 2) this.x = canvasWidth + this.w / 2;
+            if (this.x > canvasWidth + this.w / 2) this.x = 0 - this.w / 2;
+            if (this.y < 0 - this.h / 2) this.y = canvasHeight + this.h / 2;
+            if (this.y > canvasHeight + this.h / 2) this.y = 0 - this.h / 2;
+            // Shoot
+            this.coolDownTtl -= elapsedTime;
+            if (inputManager.inputs.shoot && this.coolDownTtl < 0) {
+                this.coolDownTtl = this.coolDown;
+                new Bullet(this.x + this.w/2 * (Math.sin(this.r * Math.PI / 180.0)), this.y - this.h/2 * (Math.cos(this.r * Math.PI / 180.0)), this.r);
+            }
+            // Blink
+            if (this.crashCoolDownTtl > 0) {
+                this.crashCoolDownTtl -= elapsedTime;
+                if (Math.floor(this.crashCoolDownTtl * 4 % 2) === 1) this.asset = null;
+            }
+        }
+    }
+
+    class InputManager {
+        inputs = { left: false, right: false, thrust: false, shoot: false };
+
+        #keysPressed = {};
+        #buttonsPressed = {};
+
+        constructor() {
+            document.addEventListener('keydown', (event) => {
+                this.#keysPressed[event.key] = true;
+            });
+            document.addEventListener('keyup', (event) => {
+                this.#keysPressed[event.key] = false;
+            });
+            const buttons = document.querySelectorAll('.button');
+            buttons.forEach( button => {
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    this.#buttonsPressed[button.getAttribute('data-input')] = true;
+                });
+                document.addEventListener('mouseup', (event) => {
+                    event.preventDefault();
+                    this.#buttonsPressed = {};
+                });
+                button.addEventListener('touchstart', (event) => {
+                    event.preventDefault();
+                    this.#buttonsPressed[button.getAttribute('data-input')] = true;
+                });
+                button.addEventListener('touchend', (event) => {
+                    event.preventDefault();
+                    this.#buttonsPressed[button.getAttribute('data-input')] = false;
+                });
+            });
+        }
+
+        update() {
+            this.inputs.left = this.#keysPressed['ArrowLeft'] || this.#buttonsPressed['left'];
+            this.inputs.right = this.#keysPressed['ArrowRight'] || this.#buttonsPressed['right'];
+            this.inputs.thrust = this.#keysPressed['ArrowUp'] || this.#buttonsPressed['thrust'];
+            this.inputs.shoot = this.#keysPressed[' '] || this.#buttonsPressed['shoot'];
+        }
+    }
+
+    class AssetManager {
+        assets = {};
+
+        constructor() {
+            this.#loadImage('ship');
+            this.#loadImage('ship-thrust');
+            this.#loadImage('bullet');
+            this.#loadImage('asteroid');
+        }
+
+        #loadImage(key) {
+            const img = new Image();
+            img.src = `assets/${key}.png`;
+            this.assets[this.#slugToCamelCase(key)] = img
+        }
+
+        #slugToCamelCase(slug) {
+            return slug.split('-').map((word, index) => {
+                if (index === 0) return word.toLowerCase();
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            }).join('');
+        }
+    }
+
+    class RenderManager {
+        constructor() {
+            this.canvas = document.getElementById('canvas');
+            this.context = this.canvas.getContext('2d');
+        }
+
+        clear() {
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
+
+    class CollisionManager {
+        update() {
+            // Check bullets collision
+            GameObject.all(Asteroid).forEach((asteroid) => {
+                GameObject.all(Bullet).forEach((bullet) => {
+                    if (this.#collides(asteroid, bullet)) {
+                        asteroid.hit();
+                        bullet.destroy();
+                    }
+                });
+            });
+
+            // Check ship collision
+            const ship = GameObject.first(Ship);
+            if (!ship) return;
+            GameObject.all(Asteroid).forEach((asteroid) => {
+                if (this.#collides(asteroid, ship)) {
+                    ship.crash();
+                }
+            });
+        }
+
+        #collides(asteroid, other) {
+            if (!this.#collidesInscribedCircle(asteroid, other)) return false
+
+            return this.#collidesPixels(asteroid, other);
+        }
+
+        #collidesInscribedCircle(asteroid, other) {
+            return this.#distance(asteroid, other) <= (asteroid.w + other.w) / 2;
+        }
+
+        #collidesPixels(asteroid, other) {
+            // Pixel collision is only available in web server because of getImageData api restrictions.
+            if (window.location.protocol === 'file:') return true;
+
+            const asteroidData = this.#imageData(asteroid, other);
+            const otherData = this.#imageData(other, other);
+            for (let y = 0; y < otherData.height; ++y) {
+                for (let x = 0; x < otherData.width; ++x) {
+                    const index = y * (otherData.width + x) * 4; // Alpha channel
+                    if (asteroidData.data[index] > 0 && otherData.data[index] > 0) return true;
+                }
+            }
+            return false;
+        }
+
+        #imageData(gameObject, frameObject) {
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = canvasWidth;
+            offCanvas.height = canvasHeight;
+            const offContext = offCanvas.getContext('2d');
+            gameObject.draw(offContext);
+            return offContext.getImageData(frameObject.x - frameObject.w / 2, frameObject.y - frameObject.h / 2, frameObject.w, frameObject.h);
+        }
+
+        #distance(gameObject, other) {
+            return Math.abs(Math.sqrt((other.x - gameObject.x) ** 2 + (other.y - gameObject.y) ** 2));
+        }
+    }
+
+    let assetManager = new AssetManager();
+    let renderManager = new RenderManager();
+    let inputManager = new InputManager();
+    let collisionManager = new CollisionManager();
+
+    let canvasWidth = 0;
+    let canvasHeight = 0;
+
+    let ship = null;
+
+    let level = 6;
+    let lives = 3;
+    let score = 0;
+
+    function init() {
+        spawnAsteroids();
+    }
+
+    function reset() {
+        GameObject.destroyAll();
+        score = 0;
+        lives = 3;
+        level = 1;
+        ship = new Ship(canvasWidth / 2.0, canvasHeight / 2.0, 0);
+        spawnAsteroids();
+    }
+
+    function gameOver() {
+        ship.destroy();
+        document.getElementById('game-over-level').innerHTML = level;
+        document.getElementById('game-over-score').innerHTML = score;
+        document.getElementById('game-over').style.display = 'flex';
+    }
+
+    function spawnAsteroids() {
+        for (let i = 0; i < level; ++i) {
+            new Asteroid();
+        }
+    }
+
+    function update(elapsedTime) {
+
+        inputManager.update();
+
+        GameObject.updateAll(elapsedTime);
+
+        collisionManager.update();
+
+        if (GameObject.all(Asteroid).length === 0) {
+            level++;
+            spawnAsteroids();
+        }
+
+        renderManager.clear();
+        GameObject.drawAll(renderManager.context);
+
+        document.getElementById("level-value").innerHTML = level;
+        document.getElementById("score-value").innerHTML = score;
+        if (ship) {
+            document.getElementById("lives-value").innerHTML = ship.lives;
+            if (ship.lives <= 0) gameOver();
+        }
+    }
+
+    function adjustCanvasSize() {
+        const canvas = document.getElementById('canvas');
+        canvasWidth = canvas.offsetWidth;
+        canvasHeight = canvas.offsetHeight;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        window.addEventListener('resize', adjustCanvasSize);
+        adjustCanvasSize()
+
+        init();
+
+        let previousTime = Date.now();
+        setInterval(() => {
+            const currentTime = Date.now();
+            const elapsedTime = (currentTime - previousTime) / 1000.0;
+            update(elapsedTime);
+            previousTime = currentTime;
+        }, 50);
+    });
+
+    Array.from(document.getElementsByClassName('button-play')).forEach((button, index) => {
+        button.addEventListener('click', () => {
+            document.getElementById('welcome').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            reset();
+        });
+        button.addEventListener('touchstart', () => {
+            document.getElementById('welcome').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            reset();
+        });
+    });
+</script>
+</body>
+</html>
