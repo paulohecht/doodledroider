@@ -2,7 +2,7 @@
 
 A simple asteroid game built in a single vanilla HTML+CSS+JS file + images.
 
-![image](https://github.com/user-attachments/assets/4229a415-66f4-4a06-aef3-0fe23666d746)
+<img width="379" alt="image" src="https://github.com/user-attachments/assets/4dbb3242-c4f4-4259-b717-9280996ad67a">
 
 
 ## Play
