@@ -2,6 +2,9 @@
 
 A simple asteroid game built in a single vanilla HTML+CSS+JS file + images.
 
+![image](https://github.com/user-attachments/assets/4229a415-66f4-4a06-aef3-0fe23666d746)
+
+
 ## Play
 
 https://paulohecht.github.io/doodledroider
