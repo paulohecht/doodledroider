@@ -19,4 +19,4 @@ be disabled due to limitations of the canvas API (it falls back to simple circle
 
 I recommend using `python -m http.server 8000` or npm's `http-server` to start a web server.
 
-Have kids? Ask them to draw the ships, scan the art, and replace the images in the assets folder. It's quite fun!
+Have kids? Ask them to draw the ship and asteroids, scan the art, and replace the images in the assets folder. It's quite fun!
