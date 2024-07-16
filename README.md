@@ -12,7 +12,7 @@ https://paulohecht.github.io/doodledroider
 
 This weekend, I asked my 7-year-old kid to draw the assets for an asteroid-like game, and I then used his designs to build the game. Like a real game artist, he also demanded some changes, like replacing the ship bullets with spinning ninja blades (he said we need blades to cut asteroids in half 🤔🤷‍♂️).
 
-This is part of some experimenting I've been doing with single-file HTML+CSS+JS. I wanted to build a fully featured game with rendering cycles, simple newtonian physics, and flexible input handling without any framework or library.
+This is part of some experimenting I've been doing with single-file HTML+CSS+JS. I wanted to build a simple yet fully-featured game with rendering cycles, simple newtonian physics, and flexible input handling without any framework or library.
 
 You can run the game locally in your file system, although the pixel collision detection will 
 be disabled due to limitations of the canvas API (it falls back to simple circle collisions).
